@@ -106,11 +106,14 @@ static VALUE kafka_add_broker(VALUE broker)
   return Qnil;
 }
 
-void Init_ckafka(void)
+static VALUE kafka_init(void)
 {
   rd_kafka_conf_t *conf;
   char errstr[512];
 
+  if(!rk) {
+    kafka_destroy();
+  }
   conf = rd_kafka_conf_new();
 
   rd_kafka_conf_set_log_cb(conf, logger);
@@ -119,10 +122,17 @@ void Init_ckafka(void)
   if (!rk) {
     rb_raise(rb_eStandardError, "failed to create kafka producer: %s\n", errstr);
   }
+  return Qnil;
+}
 
+void Init_ckafka(void)
+{
   kafka_module = rb_define_module("Ckafka");
 
+  rb_define_singleton_method(kafka_module, "init", kafka_init, 0);
   rb_define_singleton_method(kafka_module, "produce", kafka_send, 3);
   rb_define_singleton_method(kafka_module, "add_broker", kafka_add_broker, 1);
   rb_define_singleton_method(kafka_module, "close", kafka_destroy, 0);
+
+  kafka_init();
 }
