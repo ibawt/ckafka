@@ -5,8 +5,11 @@
 
 #include "librdkafka/rdkafka.h"
 
+#define MAX_SHUTDOWN_TRIES 5
+
 static rd_kafka_t *rk = NULL;
 static VALUE kafka_module;
+
 static void logger(const rd_kafka_t *rk, int level,
                    const char *fac, const char *buf)
 {
@@ -14,7 +17,7 @@ static void logger(const rd_kafka_t *rk, int level,
 }
 
 
-VALUE ckafka_send(VALUE topic_value, VALUE message, VALUE metadata)
+VALUE kafka_send(VALUE topic_value, VALUE key, VALUE message)
 {
   rd_kafka_topic_conf_t *topic_conf;
   rd_kafka_topic_t *topic;
@@ -22,44 +25,79 @@ VALUE ckafka_send(VALUE topic_value, VALUE message, VALUE metadata)
   void* message_bytes = NULL;
   size_t  message_len;
   int res;
+  void *key_buf;
+  size_t key_len;
+
+  if (key == Qnil) {
+    key_buf = NULL;
+    key_len = 0;
+  } else {
+    key_buf = RSTRING_PTR(key);
+    key_len = RSTRING_LEN(key);
+  }
 
   topic_name = StringValueCStr(topic_value);
-  message_bytes = RSTRING_PTR(message_bytes);
-  message_len = RSTRING_LEN(message);
+  if (!topic_name) {
+    rb_raise(rb_eStandardError, "topic is not a string!");
+  }
 
+  message_bytes = RSTRING_PTR(message_bytes);
+  if(!message_bytes) {
+    rb_raise(rb_eStandardError, "failed to get message ptr");
+  }
+
+  message_len = RSTRING_LEN(message);
   topic_conf = rd_kafka_topic_conf_new();
+  if (!topic_conf) {
+    rb_raise(rb_eStandardError, "failed to create kafka topic configuration");
+  }
 
   topic = rd_kafka_topic_new(rk, topic_name, topic_conf);
+  if(!topic) {
+    rb_raise(rb_eStandardError, "failed to create topic");
+  }
 
   res = rd_kafka_produce(topic, RD_KAFKA_PARTITION_UA, RD_KAFKA_MSG_F_COPY, message_bytes, message_len,
-                         NULL, 0, NULL);
+                         key_buf, key_len, NULL);
 
   rd_kafka_topic_destroy(topic);
+
+  if (res) {
+    rb_raise(rb_eStandardError, "rd_kafka_produce failed: %d", res);
+  }
+
   return Qnil;
 }
 
-void ckafka_destroy(void)
+static VALUE kafka_destroy(void)
 {
   if(rk) {
-    while( rd_kafka_outq_len(rk) > 0 ) {
-      rd_kafka_poll(rk, 100);
+    int i;
+
+    for ( i = 0 ; i < MAX_SHUTDOWN_TRIES ; ++i ) {
+      if (rd_kafka_outq_len(rk) <= 0 ) {
+        break;
+      } else {
+        rd_kafka_poll(rk, 100);
+      }
     }
 
     rd_kafka_destroy(rk);
     rk = NULL;
   }
+  return Qnil;
 }
 
-static VALUE add_broker(VALUE broker)
+static VALUE kafka_add_broker(VALUE broker)
 {
   char *value = StringValueCStr(broker);
   if(!value) {
-    return Qnil;
+    rb_raise(rb_eArgError, "invalid string");
   }
 
   int res = rd_kafka_brokers_add(rk, value);
   if (res == 0) {
-    fprintf(stderr, "invalid brokers!\n");
+    rb_raise(rb_eStandardError, "failed to add any brokers!");
   }
 
   return Qnil;
@@ -76,13 +114,12 @@ void Init_ckafka(void)
 
   rk = rd_kafka_new(RD_KAFKA_PRODUCER, conf, errstr, sizeof(errstr));
   if (!rk) {
-    fprintf(stderr, "failed to create kafka producer: %s\n", errstr);
-    return;
+    rb_raise(rb_eStandardError, "failed to create kafka producer: %s\n", errstr);
   }
 
   kafka_module = rb_define_module("Ckafka");
 
-  rb_define_singleton_method(kafka_module, "kafka_send", ckafka_send, 3);
-  rb_define_singleton_method(kafka_module, "add_broker", add_broker, 1)
-  atexit(ckafka_destroy);
+  rb_define_singleton_method(kafka_module, "kafka_send", kafka_send, 3);
+  rb_define_singleton_method(kafka_module, "add_broker", kafka_add_broker, 1);
+  rb_define_singleton_method(kafka_module, "close", kafka_destroy, 0);
 }
