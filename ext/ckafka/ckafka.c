@@ -27,7 +27,7 @@ static VALUE kafka_send(VALUE self, VALUE topic_value, VALUE key, VALUE message)
   void *key_buf;
   size_t key_len;
 
-  if (key == Qnil) {
+  if (NIL_P(key)) {
     key_buf = NULL;
     key_len = 0;
   } else {
@@ -40,12 +40,17 @@ static VALUE kafka_send(VALUE self, VALUE topic_value, VALUE key, VALUE message)
     rb_raise(rb_eStandardError, "topic is not a string!");
   }
 
-  message_bytes = RSTRING_PTR(message);
-  if(!message_bytes) {
-    rb_raise(rb_eStandardError, "failed to get message ptr");
+  if(NIL_P(message)) {
+    message = NULL;
+    message_len = 0;
+  } else {
+    message_bytes = RSTRING_PTR(message);
+    if(!message_bytes) {
+      rb_raise(rb_eStandardError, "failed to get message ptr");
+    }
+    message_len = RSTRING_LEN(message);
   }
 
-  message_len = RSTRING_LEN(message);
 
   topic_conf = rd_kafka_topic_conf_new();
   if(!topic_conf) {
