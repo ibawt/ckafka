@@ -88,7 +88,7 @@ static VALUE kafka_destroy()
   return Qnil;
 }
 
-VALUE kafka_add_broker(VALUE self, VALUE broker)
+static VALUE kafka_add_broker(VALUE self, VALUE broker)
 {
   char *value = StringValueCStr(broker);
   int res;
