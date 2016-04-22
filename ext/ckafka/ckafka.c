@@ -1,7 +1,7 @@
-#include <ruby.h>
 #include <stdio.h>
 #include <assert.h>
 #include <stdlib.h>
+#include <ruby.h>
 
 #include "librdkafka/rdkafka.h"
 
@@ -47,8 +47,9 @@ static VALUE kafka_send(VALUE topic_value, VALUE key, VALUE message)
   }
 
   message_len = RSTRING_LEN(message);
+
   topic_conf = rd_kafka_topic_conf_new();
-  if (!topic_conf) {
+  if(!topic_conf) {
     rb_raise(rb_eStandardError, "failed to create kafka topic configuration");
   }
 
