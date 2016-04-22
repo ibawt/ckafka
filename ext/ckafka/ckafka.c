@@ -8,7 +8,6 @@
 #define MAX_SHUTDOWN_TRIES 5
 
 static rd_kafka_t *rk = NULL;
-static VALUE kafka_module;
 
 static void logger(const rd_kafka_t *rk, int level,
                    const char *fac, const char *buf)
@@ -17,7 +16,7 @@ static void logger(const rd_kafka_t *rk, int level,
 }
 
 
-static VALUE kafka_send(VALUE topic_value, VALUE key, VALUE message)
+static VALUE kafka_send(VALUE self, VALUE topic_value, VALUE key, VALUE message)
 {
   rd_kafka_topic_conf_t *topic_conf;
   rd_kafka_topic_t *topic;
@@ -70,7 +69,7 @@ static VALUE kafka_send(VALUE topic_value, VALUE key, VALUE message)
   return Qnil;
 }
 
-static VALUE kafka_destroy(void)
+static VALUE kafka_destroy()
 {
   if(rk) {
     int i;
@@ -89,7 +88,7 @@ static VALUE kafka_destroy(void)
   return Qnil;
 }
 
-static VALUE kafka_add_broker(VALUE broker)
+VALUE kafka_add_broker(VALUE self, VALUE broker)
 {
   char *value = StringValueCStr(broker);
   int res;
@@ -106,7 +105,7 @@ static VALUE kafka_add_broker(VALUE broker)
   return Qnil;
 }
 
-static VALUE kafka_init(void)
+static VALUE kafka_init()
 {
   rd_kafka_conf_t *conf;
   char errstr[512];
@@ -125,9 +124,9 @@ static VALUE kafka_init(void)
   return Qnil;
 }
 
-void Init_ckafka(void)
+VALUE Init_ckafka()
 {
-  kafka_module = rb_define_module("Ckafka");
+  VALUE kafka_module = rb_define_module("Ckafka");
 
   rb_define_singleton_method(kafka_module, "init", kafka_init, 0);
   rb_define_singleton_method(kafka_module, "produce", kafka_send, 3);
@@ -135,4 +134,6 @@ void Init_ckafka(void)
   rb_define_singleton_method(kafka_module, "close", kafka_destroy, 0);
 
   kafka_init();
+
+  return Qnil;
 }
