@@ -17,12 +17,12 @@ static void logger(const rd_kafka_t *rk, int level,
 }
 
 
-VALUE kafka_send(VALUE topic_value, VALUE key, VALUE message)
+static VALUE kafka_send(VALUE topic_value, VALUE key, VALUE message)
 {
   rd_kafka_topic_conf_t *topic_conf;
   rd_kafka_topic_t *topic;
   char* topic_name;
-  void* message_bytes = NULL;
+  void* message_bytes;
   size_t  message_len;
   int res;
   void *key_buf;
@@ -41,7 +41,7 @@ VALUE kafka_send(VALUE topic_value, VALUE key, VALUE message)
     rb_raise(rb_eStandardError, "topic is not a string!");
   }
 
-  message_bytes = RSTRING_PTR(message_bytes);
+  message_bytes = RSTRING_PTR(message);
   if(!message_bytes) {
     rb_raise(rb_eStandardError, "failed to get message ptr");
   }
@@ -91,11 +91,13 @@ static VALUE kafka_destroy(void)
 static VALUE kafka_add_broker(VALUE broker)
 {
   char *value = StringValueCStr(broker);
+  int res;
+
   if(!value) {
     rb_raise(rb_eArgError, "invalid string");
   }
 
-  int res = rd_kafka_brokers_add(rk, value);
+  res = rd_kafka_brokers_add(rk, value);
   if (res == 0) {
     rb_raise(rb_eStandardError, "failed to add any brokers!");
   }
@@ -119,7 +121,7 @@ void Init_ckafka(void)
 
   kafka_module = rb_define_module("Ckafka");
 
-  rb_define_singleton_method(kafka_module, "kafka_send", kafka_send, 3);
+  rb_define_singleton_method(kafka_module, "produce", kafka_send, 3);
   rb_define_singleton_method(kafka_module, "add_broker", kafka_add_broker, 1);
   rb_define_singleton_method(kafka_module, "close", kafka_destroy, 0);
 }
