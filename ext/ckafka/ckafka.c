@@ -20,12 +20,12 @@ static VALUE kafka_send(VALUE self, VALUE topic_value, VALUE key, VALUE message)
 {
   rd_kafka_topic_conf_t *topic_conf;
   rd_kafka_topic_t *topic;
-  char* topic_name;
-  void* message_bytes;
-  size_t  message_len;
-  int res;
+  char *topic_name;
+  void *message_bytes;
+  size_t message_len;
   void *key_buf;
   size_t key_len;
+  int res;
 
   if (NIL_P(key)) {
     key_buf = NULL;
